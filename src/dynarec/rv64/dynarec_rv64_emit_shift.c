@@ -478,16 +478,8 @@ void emit_sar16c(dynarec_rv64_t* dyn, int ninst, int s1, uint32_t c, int s3, int
         }
         OR(xFlags, xFlags, s3);
     }
-    IFX(X_OF) {
-        // OF flag is affected only on 1-bit shifts
-        // OF flag is set to the most-significant bit of the original operand
-        if (c == 1) {
-            SRLI(s3, s1, 15);
-            ANDI(s3, s3, 1);
-            SLLI(s3, s3, F_OF2);
-            OR(xFlags, xFlags, s3);
-        }
-    }
+    // For the SAR instruction, the OF flag is cleared for all 1-bit shifts.
+    // OF nop
     IFX(X_SF) {
         // SF is the same as the original operand
         BGE(s1, xZR, 8);
@@ -914,6 +906,8 @@ void emit_sar32c(dynarec_rv64_t* dyn, int ninst, rex_t rex, int s1, uint32_t c, 
         }
         OR(xFlags, xFlags, s3);
     }
+    // For the SAR instruction, the OF flag is cleared for all 1-bit shifts.
+    // OF nop
 
     if (rex.w) {
         SRAI(s1, s1, c);
@@ -988,12 +982,13 @@ void emit_rol32(dynarec_rv64_t* dyn, int ninst, rex_t rex, int s1, int s2, int s
     }
     IFX(X_OF) {
         // the OF flag is set to the exclusive OR of the CF bit (after the rotate) and the most-significant bit of the result.
-        ADDI(s3, xZR, 1);
-        BNE_NEXT(s2, s3);
+        ADDI(s3, s2, -1);
+        BNEZ_MARK(s3);
         SRLIxw(s3, s1, rex.w?63:31);
         XOR(s3, s3, s4); // s3: MSB, s4: CF bit
         SLLI(s3, s3, F_OF2);
         OR(xFlags, xFlags, s3);
+        MARK;
     }
 }
 
@@ -1044,14 +1039,15 @@ void emit_ror32(dynarec_rv64_t* dyn, int ninst, rex_t rex, int s1, int s2, int s
     }
     IFX(X_OF) {
         // the OF flag is set to the exclusive OR of the two most-significant bits of the result
-        ADDI(s3, xZR, 1);
-        BNE_NEXT(s2, s3);
+        ADDI(s3, s2, -1);
+        BNEZ_MARK(s3);
         SRLIxw(s3, s1, rex.w?63:31);
         SRLIxw(s4, s1, rex.w?62:30);
         XOR(s3, s3, s4);
         ANDI(s3, s3, 1);
         SLLI(s3, s3, F_OF2);
         OR(xFlags, xFlags, s3);
+        MARK;
     }
 }
 

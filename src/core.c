@@ -67,6 +67,7 @@ int box64_ignoreint3 = 0;
 int box64_rdtsc = 0;
 int box64_rdtsc_1ghz = 0;
 uint8_t box64_rdtsc_shift = 0;
+char* box64_new_args = NULL;
 #ifdef DYNAREC
 int box64_dynarec = 1;
 int box64_dynarec_dump = 0;
@@ -2030,7 +2031,32 @@ int initialize(int argc, const char **argv, char** env, x64emu_t** emulator, elf
     {
         add_argv("-cef-disable-gpu-compositor");
     }
-
+    if(box64_new_args) {
+        char tmp[256];
+        char* p = box64_new_args;
+        int state = 0;
+        char* p2 = p;
+        while(state>=0) {
+            switch(*p2) {
+                case 0: // end of flux
+                    if(state && (p2!=p)) add_argv(p);
+                    state = -1;
+                    break;
+                case '"': // start/end of quotes
+                    if(state<2) {if(!state) p=p2; state=2;} else state=1;
+                    break;
+                case ' ':
+                    if(state==1) {strncpy(tmp, p, p2-p); tmp[p2-p]='\0'; add_argv(tmp); state=0;}
+                    break;
+                default:
+                    if(state==0) {state=1; p=p2;}
+                    break;
+            }
+            ++p2;
+        }
+        box_free(box64_new_args);
+        box64_new_args = NULL;
+    }
     // check if file exist
     if(!my_context->argv[0] || !FileExist(my_context->argv[0], IS_FILE)) {
         printf_log(LOG_NONE, "Error: File is not found. (check BOX64_PATH)\n");
